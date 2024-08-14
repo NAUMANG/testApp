@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
     <title>Speech TranslationIn simple js and html sample</title>
@@ -82,23 +82,37 @@
             }
             return "";
         };
+        let isAudioPlaying = false;
 
         const playTranslatedText = (text, language) => {
             const speechConfig = SpeechSDK.SpeechConfig.fromSubscription("0801bff339ac4c53bd81ce75245eb84e", "eastus2");
             speechConfig.speechSynthesisLanguage = language + "-ES"; // Construct locale for voice name
-            ttsAudioConfig = SpeechSDK.AudioConfig.fromDefaultSpeakerOutput();
+         //   ttsAudioConfig = SpeechSDK.AudioConfig.fromDefaultSpeakerOutput();
 
-            const synthesizer = new SpeechSDK.SpeechSynthesizer(speechConfig, ttsAudioConfig);
+            const synthesizer = new SpeechSDK.SpeechSynthesizer(speechConfig, null);
             synthesizer.speakTextAsync(
                 text,
                 result => {
                     if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
                         console.log("Synthesis completed.");
-                        const audioStream = result.audioData;
-                        const audioBlob = new Blob([audioStream], { type: 'audio/wav' });
+                        // Clear the previous audio source and stop playback if already playing
+                        if (isAudioPlaying) {
+                            audioPlayer.pause();
+                            audioPlayer.src = "";
+                            isAudioPlaying = false;
+                        }
+
+                        // Convert the audio data to a Blob and create a URL for playback
+                        const audioBlob = new Blob([result.audioData], { type: 'audio/wav' });
                         const audioUrl = URL.createObjectURL(audioBlob);
+
+                        // Set the audio URL to the audio player and play it
                         audioPlayer.src = audioUrl;
-                        audioPlayer.play();
+                        audioPlayer.play().then(() => {
+                            isAudioPlaying = true;
+                        }).catch(error => {
+                            console.error("Error playing audio: ", error);
+                        });
                     } else {
                         console.error("Speech synthesis canceled, " + result.errorDetails);
                     }
