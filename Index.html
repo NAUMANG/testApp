@@ -1,0 +1,118 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Speech TranslationIn simple js and html sample</title>
+    <script src="https://cdn.jsdelivr.net/npm/microsoft-cognitiveservices-speech-sdk/distrib/browser/microsoft.cognitiveservices.speech.sdk.bundle.js"></script>
+</head>
+<body>
+    <h1>Speech TranslationIn simple js and html sample</h1>
+    <button id="startButton">Start Translation</button>
+    <button id="stopButton">Stop Translation</button>
+    <audio id="audioPlayer" controls></audio>
+    <div id="output"></div>
+
+    <script>
+        let recognizer;
+        let audioConfig;
+        let speechConfig;
+        let ttsAudioConfig;
+        let audioPlayer = document.getElementById('audioPlayer');
+
+       
+        const voices = {
+            'en': 'en-US-JennyNeural', 
+            'es': 'es-ES-PabloNeural', 
+            // Add more languages and voices as needed
+        };
+
+        const startTranslation = async () => {
+            const subscriptionKey = "0801bff339ac4c53bd81ce75245eb84e";
+            const region = "eastus2";
+            const fromLanguage = "en-US";
+            const toLanguage = "es"; 
+
+            try {
+                speechConfig = SpeechSDK.SpeechTranslationConfig.fromSubscription(subscriptionKey, region);
+                speechConfig.speechRecognitionLanguage = fromLanguage;
+                speechConfig.addTargetLanguage(toLanguage);
+
+                audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
+                recognizer = new SpeechSDK.TranslationRecognizer(speechConfig, audioConfig);
+
+                recognizer.recognizing = (s, e) => {
+                    document.getElementById("output").innerText += `Recognizing: ${e.result.text}\n`;
+                };
+
+                recognizer.recognized = (s, e) => {
+                    if (e.result.reason === SpeechSDK.ResultReason.TranslatedSpeech) {
+                        const translatedText = extractTranslatedText(e.result.translations, toLanguage);
+                        document.getElementById("output").innerText += `Translated: ${translatedText}\n`;
+                        playTranslatedText(translatedText, toLanguage);
+                    } else if (e.result.reason === SpeechSDK.ResultReason.RecognizedSpeech) {
+                        document.getElementById("output").innerText += `Recognized: ${e.result.text}\n`;
+                    } else if (e.result.reason === SpeechSDK.ResultReason.NoMatch) {
+                        document.getElementById("output").innerText += "No Match\n";
+                    }
+                };
+
+                recognizer.canceled = (s, e) => {
+                    document.getElementById("output").innerText += `Canceled: ${e.reason}\n`;
+                    recognizer.stopContinuousRecognitionAsync();
+                };
+
+                recognizer.startContinuousRecognitionAsync();
+            } catch (error) {
+                console.error('Error starting translation:', error);
+            }
+        };
+
+        const stopTranslation = () => {
+            if (recognizer) {
+                recognizer.stopContinuousRecognitionAsync();
+            }
+        };
+
+        const extractTranslatedText = (translations, targetLanguage) => {
+            const keys = translations.privMap.privKeys;
+            const values = translations.privMap.privValues;
+            for (let i = 0; i < keys.length; i++) {
+                if (keys[i] === targetLanguage) {
+                    return values[i];
+                }
+            }
+            return "";
+        };
+
+        const playTranslatedText = (text, language) => {
+            const speechConfig = SpeechSDK.SpeechConfig.fromSubscription("0801bff339ac4c53bd81ce75245eb84e", "eastus2");
+            speechConfig.speechSynthesisLanguage = language + "-ES"; // Construct locale for voice name
+            ttsAudioConfig = SpeechSDK.AudioConfig.fromDefaultSpeakerOutput();
+
+            const synthesizer = new SpeechSDK.SpeechSynthesizer(speechConfig, ttsAudioConfig);
+            synthesizer.speakTextAsync(
+                text,
+                result => {
+                    if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
+                        console.log("Synthesis completed.");
+                        const audioStream = result.audioData;
+                        const audioBlob = new Blob([audioStream], { type: 'audio/wav' });
+                        const audioUrl = URL.createObjectURL(audioBlob);
+                        audioPlayer.src = audioUrl;
+                        audioPlayer.play();
+                    } else {
+                        console.error("Speech synthesis canceled, " + result.errorDetails);
+                    }
+                    synthesizer.close();
+                },
+                error => {
+                    console.error("Error synthesizing text: ", error);
+                    synthesizer.close();
+                }
+            );
+        };
+
+        document.getElementById('startButton').onclick = startTranslation;
+        document.getElementById('stopButton').onclick = stopTranslation;
+    </script>
+</body>
+</html>
